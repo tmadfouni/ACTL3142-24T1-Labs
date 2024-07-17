@@ -1,0 +1,101 @@
+---
+title: "week8"
+output: html_document
+date: "2024-07-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 2
+
+```{r setup_libs}
+library(ggplot2)
+library(boot)
+library(purrr)
+library(RColorBrewer)
+library(splines)
+data = ISLR2::Boston
+```
+
+### Part A
+
+```{r 2a}
+fit = lm(nox ~ poly(dis, degree = 3), data = data)
+ggplot(data, aes(x = dis, y = nox)) + geom_point() + stat_smooth(method = "lm", formula = y ~ poly(x, degree = 3))
+```
+
+### Part B
+
+Can check [here](https://r-graph-gallery.com/38-rcolorbrewers-palettes.html) for more colour palettes
+```{r 2b}
+col_pal = brewer.pal(10, "Set3")
+plt = ggplot(data, aes(x = dis, y = nox)) + geom_point() + theme_classic()  #+scale_color_manual(values = col_pal, labels = col_pal)
+
+lines = map(1:10, function(i) stat_smooth(method = "lm", formula = y ~ poly(x, degree = i), aes(color = paste("Degree", i)), se = FALSE))
+
+plt + lines + scale_color_discrete(name = "Degree", breaks = paste("Degree", 1:10))
+
+for (i in 1:10) {
+  fit = lm(nox ~ poly(dis, degree = i), data = data)
+  print(sum(fit$residuals^2))
+}
+```
+
+### Part C
+
+```{r 2c}
+set.seed(1)
+cv_vals = c()
+for (i in 1:10) {
+  fit = glm(nox ~ poly(dis, degree = i), data = data)
+  cv_vals = c(cv_vals, cv.glm(data, fit, K = 30)$delta[1])
+}
+ggplot() + geom_line(aes(x = 1:10, y = cv_vals)) + scale_x_continuous(limits = c(1,10), breaks = 1:10)
+
+
+```
+
+### Part D
+
+```{r 2d}
+fit = lm(nox ~ bs(dis, degree = 3), data = data)
+ggplot(data, aes(x = dis, y = nox)) + geom_point() + stat_smooth(method = "lm", formula = y ~ bs(x, degree = 3), color = "cyan", se = F) 
+# How many knots does it have?
+
+ggplot(data, aes(x = dis, y = nox)) + geom_point() + stat_smooth(method = "lm", formula = y ~ bs(x, degree = 1, knots = c(median(x))), color = "cyan", se = F) 
+
+
+```
+
+### Part E
+
+```{r 2e}
+rss = c()
+for (i in 4:13) {
+  fit = lm(nox ~ bs(dis, df = i), data = data)
+  rss = c(rss, round(sum(fit$residuals^2), 2))
+}
+
+col_pal = brewer.pal(10, "Set3")
+plt = ggplot(data, aes(x = dis, y = nox)) + geom_point() + theme_classic()  #+scale_color_manual(values = col_pal, labels = col_pal)
+
+lines = map(4:13, function(i) stat_smooth(method = "lm", formula = y ~ bs(x, df = i), aes(color = paste("Degree", i, "-", rss[i-3])), se = FALSE))
+
+plt + lines + scale_color_discrete(name = "Degree", breaks = paste("Degree", 4:13, "-", rss))
+
+```
+
+### Part F
+
+```{r 2f}
+cv_vals = c()
+options(warn=-1)
+for (i in 4:13) {
+  fit = glm(nox ~ bs(dis, df = i), data = data)
+  cv_vals = c(cv_vals, cv.glm(data, fit, K = 30)$delta[1])
+}
+options(warn=0)
+ggplot() + geom_line(aes(x = 4:13, y = cv_vals)) + scale_x_continuous(limits = c(4,13), breaks = 4:13)
+```
