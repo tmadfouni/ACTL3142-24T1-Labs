@@ -14,7 +14,6 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(boot)
 library(purrr)
-library(RColorBrewer)
 library(splines)
 data = ISLR2::Boston
 ```
@@ -28,11 +27,8 @@ ggplot(data, aes(x = dis, y = nox)) + geom_point() + stat_smooth(method = "lm", 
 
 ### Part B
 
-Can check [here](https://r-graph-gallery.com/38-rcolorbrewers-palettes.html) for more colour palettes
 ```{r 2b}
-col_pal = brewer.pal(10, "Set3")
-plt = ggplot(data, aes(x = dis, y = nox)) + geom_point() + theme_classic()  #+scale_color_manual(values = col_pal, labels = col_pal)
-
+plt = ggplot(data, aes(x = dis, y = nox)) + geom_point() + theme_classic()
 lines = map(1:10, function(i) stat_smooth(method = "lm", formula = y ~ poly(x, degree = i), aes(color = paste("Degree", i)), se = FALSE))
 
 plt + lines + scale_color_discrete(name = "Degree", breaks = paste("Degree", 1:10))
@@ -60,11 +56,11 @@ ggplot() + geom_line(aes(x = 1:10, y = cv_vals)) + scale_x_continuous(limits = c
 ### Part D
 
 ```{r 2d}
-fit = lm(nox ~ bs(dis, degree = 3), data = data)
-ggplot(data, aes(x = dis, y = nox)) + geom_point() + stat_smooth(method = "lm", formula = y ~ bs(x, degree = 3), color = "cyan", se = F) 
+fit = lm(nox ~ bs(dis, df = 3), data = data)
+ggplot(data, aes(x = dis, y = nox)) + geom_point() + stat_smooth(method = "lm", formula = y ~ bs(x, df = 3), color = "cyan", se = F) 
 # How many knots does it have?
 
-ggplot(data, aes(x = dis, y = nox)) + geom_point() + stat_smooth(method = "lm", formula = y ~ bs(x, degree = 1, knots = c(median(x))), color = "cyan", se = F) 
+ggplot(data, aes(x = dis, y = nox)) + geom_point() + stat_smooth(method = "lm", formula = y ~ bs(x, degree = 1, df = 4), color = "cyan", se = F) 
 
 
 ```
@@ -78,8 +74,7 @@ for (i in 4:13) {
   rss = c(rss, round(sum(fit$residuals^2), 2))
 }
 
-col_pal = brewer.pal(10, "Set3")
-plt = ggplot(data, aes(x = dis, y = nox)) + geom_point() + theme_classic()  #+scale_color_manual(values = col_pal, labels = col_pal)
+plt = ggplot(data, aes(x = dis, y = nox)) + geom_point() + theme_classic()  
 
 lines = map(4:13, function(i) stat_smooth(method = "lm", formula = y ~ bs(x, df = i), aes(color = paste("Degree", i, "-", rss[i-3])), se = FALSE))
 
