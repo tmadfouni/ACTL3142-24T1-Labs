@@ -1,0 +1,184 @@
+---
+title: "week9"
+output: html_document
+date: "2024-07-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup2}
+library(ggplot2)
+```
+
+# Theoretical Question 1
+
+Mis-classification error is measured by
+$$1-\max_k(\hat{p}_k)$$
+Gini is
+$$\sum^K_{k=1}\hat{p}_k(1-\hat{p}_k)$$
+
+Entropy is
+$$-\sum^K_{k=1}\hat{p}_k\ln(\hat{p}_k)$$
+
+```{r theo_q1}
+misclassification = function(p) {1 - pmax(p, 1-p)}
+gini = function(p) p*(1-p) + (1-p) * p
+entropy = function(p) -(p*log(p) + (1-p) * log(1-p))
+ggplot() + xlim(0,1) + geom_function(fun = misclassification, aes(color = "misclassification"), linewidth = 1.3) + 
+  geom_function(fun = gini, aes(color = "gini"), linewidth = 1.3) +
+  geom_function(fun = entropy, aes(color = "entropy"), linewidth = 1.3)
+```
+
+# Theoretical Question 3
+
+```{r theo_q2}
+estimates = c(0.1, 0.15, 0.2, 0.2, 0.55, 0.6, 0.6, 0.65, 0.7, 0.75)
+threshold = 0.5
+
+avg_prob = function(estimates, threshold) mean(estimates) > threshold
+majority_vote = function(estimates, threshold) {
+  counts = table(estimates > threshold)
+  names(counts)[which.max(counts)]
+}
+```
+
+# Applied Question 1
+
+```{r q1}
+dataset = ISLR2::Carseats
+set.seed(1)
+library(rpart)
+library(caret)
+library(rpart.plot)
+library(randomForest)
+```
+
+## Part A
+
+```{r q1a}
+train_idx = createDataPartition(dataset$Sales, times = 1, p = 0.8)$Resample1
+train_data = dataset[train_idx,]
+test_data = dataset[-train_idx,]
+```
+
+## Part B
+
+```{r q2b}
+model = rpart(Sales ~ ., train_data)
+plot(model)
+text(model, pretty = 0)
+
+rpart.plot(model)
+
+preds = predict(model, test_data, type = "vector")
+mean((preds - test_data$Sales)^2)
+```
+
+## Part C
+
+```{r q2c}
+custom_cv = function(prune_cp = 0) {
+  mse = c()
+  folds = createFolds(train_data$Sales, k = 5)
+  for (validation_idx in folds) {
+    train = train_data[-validation_idx,]
+    validation = train_data[validation_idx,]
+    model = rpart(Sales ~ ., train)
+    pruned = prune.rpart(model, prune_cp)
+    preds = predict(pruned, validation)
+    mse = c(mse, mean((preds - validation$Sales)^2))
+  }
+  return(mean(mse))
+}
+
+custom_cv = Vectorize(custom_cv)
+plot(seq(0, 0.5, by = 0.05), custom_cv(seq(0, 0.5, by = 0.05)), type = "l")
+```
+
+
+## Part D
+
+```{r q2d}
+set.seed(1)
+bag.sales = randomForest(Sales ~ ., train_data, mtry = ncol(train_data) - 1, importance = T)
+importance(bag.sales)
+pred = predict(bag.sales, test_data)
+mean((test_data$Sales - pred)^2)
+```
+
+## Part E
+
+```{r q2e}
+set.seed(1)
+bag.sales = randomForest(Sales ~ ., train_data, importance = T)
+importance(bag.sales)
+pred = predict(bag.sales, test_data)
+mean((test_data$Sales - pred)^2)
+
+mses = c()
+for (i in 1:(ncol(train_data) - 1)) {
+  rf = randomForest(Sales ~ ., train_data, mtry = i)
+  pred = predict(rf, test_data)
+  mses = c(mses, mean((test_data$Sales - pred)^2))
+}
+plot(1:(ncol(train_data) - 1), mses, type = "l")
+```
+
+## Part F
+
+I'm like 70% sure this isn't in the syllabus anymore
+
+# Applied Question 3
+
+```{r q3}
+dataset = ISLR2::Hitters
+```
+
+## Part A
+
+Note that the `complete.cases()` function is much more dynamic and useful for this. But `na.omit` works for simple cases like this.
+
+```{r q3a}
+colSums(is.na(dataset))
+dataset = na.omit(dataset)
+dataset$Salary = log(dataset$Salary, base = 10)
+```
+
+## Part B
+
+```{r q3b}
+train_data = dataset[1:200,]
+test_data = dataset[201:nrow(dataset),]
+```
+
+## Part C and D
+
+```{r q3c}
+library(gbm)
+set.seed(1)
+train_mses = c()
+test_mses = c()
+lambdas = 10^seq(-5, -0.2, by = 0.05)
+for(lambda in lambdas) {
+  fit = gbm(Salary ~ ., distribution = "gaussian", data = train_data, n.trees = 1000, shrinkage = lambda)
+  train_pred = predict(fit, n.trees=1000)
+  test_pred = predict(fit, test_data, n.trees = 1000)
+  train_mses = c(train_mses, mean((train_data$Salary - train_pred)^2))
+  test_mses = c(test_mses, mean((test_data$Salary - test_pred)^2))
+}
+plot(lambdas, train_mses, type = "l")
+plot(lambdas, test_mses, type = "l")
+```
+
+## Part F
+
+```{r 2f}
+model = gbm(Salary ~ ., data = train_data, shrinkage = 0.1, n.trees = 1000)
+summary(model)
+```
+
+## Part E and G
+
+These will just depend what happens in the tutorial :))
