@@ -1,0 +1,130 @@
+---
+title: "week10"
+output: html_document
+date: "2024-07-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Clustering Theoretical Q2
+
+```{r theo_q2}
+set.seed(15)
+library(ggplot2)
+dataset = data.frame(x1 = c(1,1,0,5,6,4),
+                     x2 = c(4,3,4,1,2,0),
+                     cluster = as.factor(1))
+ggplot(dataset) + geom_point(aes(x = x1, y = x2, col = cluster), size = 2.5) + theme_classic()
+
+dataset$cluster = as.factor(sample(c(1,2), 6, replace = T))
+ggplot(dataset) + geom_point(aes(x = x1, y = x2, col = cluster), size = 2.5) + theme_classic()
+
+centroid1 = colMeans(dataset[dataset$cluster == 1, c(1,2)])
+centroid2 = colMeans(dataset[dataset$cluster == 2, c(1,2)])
+
+ggplot() + geom_point(data = dataset, aes(x = x1, y = x2, col = cluster), size = 2.5) + 
+  geom_point(aes(x = centroid1[1], y = centroid1[2], col = as.factor(1)), shape = "x", size = 8) + 
+  geom_point(aes(x = centroid2[1], y = centroid2[2], col = as.factor(2)), shape = "x", size = 8) +
+  theme_classic()
+
+dataset$cluster = as.factor(
+  ifelse(
+    (dataset$x1 - centroid1[1])^2 + (dataset$x2 - centroid1[2])^2 < (dataset$x1 - centroid2[1])^2 + (dataset$x2 - centroid2[2])^2,
+    1,
+    2
+  )
+)
+
+centroid1 = colMeans(dataset[dataset$cluster == 1, c(1,2)])
+centroid2 = colMeans(dataset[dataset$cluster == 2, c(1,2)])
+
+ggplot() + geom_point(data = dataset, aes(x = x1, y = x2, col = cluster), size = 2.5) + 
+  geom_point(aes(x = centroid1[1], y = centroid1[2], col = as.factor(1)), shape = "x", size = 8) + 
+  geom_point(aes(x = centroid2[1], y = centroid2[2], col = as.factor(2)), shape = "x", size = 8) +
+  theme_classic()
+
+```
+
+# Clustering Applied Q1
+
+## Part A and B
+
+```{r clust_app_q1ab}
+dataset = USArrests
+hierarchical_model = hclust(dist(dataset), method = "complete")
+plot(hierarchical_model)
+
+cutree(hierarchical_model, k = 3)
+```
+
+## Part C
+
+```{r clust_app_q1c}
+dataset.scaled = scale(dataset, center = F, scale = T)
+hierarchical_scaled = hclust(dist(dataset.scaled))
+plot(hierarchical_scaled)
+```
+
+## Part D
+
+We're measuring by Euclidean distance, this means that features that are on a higher scale are going to cause more dissimilarity than those that aren't. You should scale your data.
+
+# PCA Applied Q1
+
+```{r pca_q1}
+setwd("C:/Users/tmadf/OneDrive - UNSW/University Tutoring/ACTL3142/24T2 Tutorial Git/week10/")
+train = read.csv("mnist_small_train.csv")
+test = read.csv("mnist_test.csv")
+
+X_train = train[, -ncol(train)]
+y_train = as.factor(train[, "label"])
+
+X_test = test[, -ncol(test)]
+y_test = as.factor(test[, "label"])
+
+nonzero_var_cols= which(apply(X_train, 2, var) != 0)
+zero_var_cols=which(apply(X_train, 2, var) == 0)
+X_train = X_train[, nonzero_var_cols]
+X_test = X_test[, nonzero_var_cols]
+
+library(randomForest)
+start = Sys.time()
+rf = randomForest(X_train, y_train, ntree = 20, maxnodes = 50, do.trace = T)
+print(Sys.time() - start)
+
+pred = predict(rf, X_test)
+print(mean(pred == y_test))
+
+library(caret)
+
+pca = preProcess(X_train, method = "pca", thresh = 0.95)
+X_train_reduced = predict(pca, X_train)
+X_test_reduced = predict(pca, X_test)
+
+eigens = pca$rotation
+
+train = read.csv("mnist_small_train.csv")
+X_train = train[, -ncol(train)]
+
+empties = matrix(data = NA, ncol = ncol(eigens), nrow = length(zero_var_cols), dimnames = list(names(zero_var_cols), colnames(eigens)))
+
+eigens = rbind(eigens, empties)
+eigens = eigens[colnames(X_train),]
+
+par(mfrow = c(3, 3), axes = F)
+
+for (i in 1:9) {
+  m = matrix(data = eigens[,i], ncol = 28, nrow = 28)
+
+  image(1:ncol(m), 1:nrow(m), m, col = hcl.colors(60, palette = "grays",rev = T), axes = FALSE)
+}
+
+start = Sys.time()
+rf = randomForest(X_train_reduced, y_train, ntree = 20, maxnodes = 50, do.trace = T)
+print(Sys.time() - start)
+
+pred = predict(rf, X_test_reduced)
+print(mean(pred == y_test))
+```

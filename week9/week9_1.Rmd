@@ -1,0 +1,118 @@
+---
+title: "week9_1"
+output: html_document
+date: "2024-07-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Q1
+
+## Part A
+
+```{r q1a}
+library(caret)
+library(rpart)
+library(rpart.plot)
+dataset = ISLR2::Carseats
+train_idx = createDataPartition(dataset$Sales, times = 1, p = 0.8)$Resample1
+train_data = dataset[train_idx,]
+test_data = dataset[-train_idx,]
+```
+
+## Part B
+
+```{r q1b}
+model = rpart(Sales ~ ., train_data)
+plot(model)
+text(model, pretty = 0)
+
+rpart.plot(model)
+
+preds = predict(model, test_data)
+mean((preds - test_data$Sales)^2)
+```
+
+## Part C
+
+```{r q1c}
+custom_cv = function(prune_cp = 0) {
+  mse = c()
+  folds = createFolds(train_data$Sales, k = 5)
+  for (validation_idx in folds) {
+    train = train_data[-validation_idx, ]
+    validation = train_data[validation_idx,]
+    model = rpart(Sales ~ ., train)
+    pruned = prune.rpart(model, prune_cp)
+    preds = predict(pruned, validation)
+    mse = c(mse, mean((preds - validation$Sales)^2))
+  }
+  return(mean(mse))
+}
+
+custom_cv = Vectorize(custom_cv)
+plot(seq(0, 0.5, by = 0.05), custom_cv(seq(0, 0.5, by = 0.05)))
+
+```
+
+## Part D
+
+```{r q1d}
+library(randomForest)
+
+bagging = randomForest(Sales ~ ., train_data, mtry = ncol(train_data) - 1, importance = T)
+importance(bagging)
+
+pred = predict(bagging, test_data)
+mean((test_data$Sales - pred)^2)
+```
+
+## Part E
+
+```{r q1e}
+mses = c()
+for (i in 1:(ncol(train_data) - 1)) {
+  rf = randomForest(Sales ~ ., train_data, mtry = i)
+  pred = predict(rf, test_data)
+  mses = c(mses, mean((test_data$Sales - pred)^2))
+}
+plot(1:(ncol(train_data) - 1), mses)
+```
+
+
+# Question 3
+
+## Part A
+
+```{r q2a}
+dataset = ISLR2::Hitters
+colSums(is.na(dataset))
+dataset = na.omit(dataset)
+dataset$Salary = log(dataset$Salary, 10)
+```
+
+## Part B
+
+```{r q2b}
+train_data = dataset[1:200,]
+test_data = dataset[201:nrow(dataset),]
+```
+
+## Part C and D
+
+```{r q2c}
+library(gbm)
+train_mses = c()
+test_mses = c()
+lambdas = 10^seq(-3, 2, by = 0.05)
+for (lambda in lambdas) {
+  fit = gbm(Salary ~ ., distribution = "gaussian", data = train_data, n.trees = 1000, shrinkage = lambda)
+  train_pred = predict(fit, n.trees=1000)
+  test_pred = predict(fit, test_data, n.trees = 1000)
+  train_mses = c(train_mses, mean((train_data$Salary - train_pred)^2))
+  test_mses = c(test_mses, mean((test_data$Salary - test_pred)^2))
+}
+plot(lambdas, test_mses, type = "l")
+```
